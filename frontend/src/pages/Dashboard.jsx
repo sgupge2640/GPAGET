@@ -6,6 +6,11 @@ export default function Dashboard() {
   const [selectedClassId, setSelectedClassId] = useState("");
   const [visualization, setVisualization] = useState([]);
   const [message, setMessage] = useState("");
+  const [studyDate, setStudyDate] = useState(new Date().toISOString().slice(0, 10));
+  const [studyMinutes, setStudyMinutes] = useState(30);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timerStartedAt, setTimerStartedAt] = useState(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const loadData = async () => {
     try {
@@ -25,8 +30,23 @@ export default function Dashboard() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!isTimerRunning || !timerStartedAt) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - timerStartedAt) / 1000));
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isTimerRunning, timerStartedAt]);
+
   const selectedClass = classes.find((c) => String(c.id) === String(selectedClassId));
   const weeklyProgress = selectedClass?.weekly_progress || {};
+  const formatElapsed = (seconds) => {
+    const mins = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const secs = (seconds % 60).toString().padStart(2, "0");
+    return `${mins}:${secs}`;
+  };
 
   const updateWeeklyProgress = async (nextProgress) => {
     if (!selectedClass) return;
@@ -56,6 +76,48 @@ export default function Dashboard() {
 
     await updateWeeklyProgress(nextProgress);
     await loadData();
+  };
+
+  const saveStudyTime = async (minutesToSave) => {
+    if (!selectedClassId) {
+      setMessage("科目を選択してください");
+      return;
+    }
+
+    try {
+      await apiRequest("/api/study-times", "POST", {
+        class_id: Number(selectedClassId),
+        study_time: Number(minutesToSave),
+        date: studyDate
+      });
+      setMessage("勉強時間を保存しました");
+      await loadData();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const startTimer = () => {
+    if (!selectedClassId) {
+      setMessage("科目を選択してください");
+      return;
+    }
+
+    setStudyDate(new Date().toISOString().slice(0, 10));
+    setElapsedSeconds(0);
+    setTimerStartedAt(Date.now());
+    setIsTimerRunning(true);
+    setMessage("勉強時間の計測を開始しました");
+  };
+
+  const stopTimer = async () => {
+    if (!isTimerRunning) return;
+
+    const minutes = Math.max(1, Math.round(elapsedSeconds / 60));
+    setIsTimerRunning(false);
+    setTimerStartedAt(null);
+    await saveStudyTime(minutes);
+    setElapsedSeconds(0);
   };
 
   return (
@@ -145,6 +207,47 @@ export default function Dashboard() {
             )}
           </>
         )}
+      </section>
+
+      <section className="dashboard-section">
+        <h3>勉強時間を記録</h3>
+        <div className="study-timer-card">
+          <div className="study-timer-controls">
+            <label>
+              日付
+              <input
+                type="date"
+                value={studyDate}
+                onChange={(e) => setStudyDate(e.target.value)}
+              />
+            </label>
+            <label>
+              勉強時間（分）
+              <input
+                type="number"
+                min="1"
+                value={studyMinutes}
+                onChange={(e) => setStudyMinutes(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="study-timer-actions">
+            <button type="button" className="primary-button" onClick={startTimer} disabled={isTimerRunning}>
+              計測開始
+            </button>
+            <button type="button" className="primary-button" onClick={stopTimer} disabled={!isTimerRunning}>
+              計測停止
+            </button>
+            <span className="study-timer-readout">{formatElapsed(elapsedSeconds)}</span>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => saveStudyTime(studyMinutes)}
+            >
+              手入力で保存
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="dashboard-section">
