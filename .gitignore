@@ -6,3 +6,7 @@ __pycache__/
 .DS_Store
 backend/uploads/
 backend/app.db
+frontend/node_modules/
+frontend/dist/
+frontend/vite.log
+frontend/vite.err.log
