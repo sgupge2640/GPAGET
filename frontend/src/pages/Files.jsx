@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { apiRequest } from "../api";
+import { API_BASE, apiRequest } from "../api";
 
 export default function Files() {
   const [files, setFiles] = useState([]);
@@ -146,14 +146,20 @@ export default function Files() {
                       </button>
                       {isOpen && (
                         <div className="past-question-images-grid">
-                          {yearFiles.map((file) => (
-                            <img
-                              key={file.id}
-                              src={`${import.meta.env.VITE_API_BASE_URL}${file.view_url}`}
-                              alt={file.filename}
-                              className="past-question-image"
-                            />
-                          ))}
+                          {yearFiles.map((file) => {
+                            const imageSrc = file.view_url.startsWith("http")
+                              ? file.view_url
+                              : `${API_BASE}${file.view_url}`;
+
+                            return (
+                              <img
+                                key={file.id}
+                                src={imageSrc}
+                                alt={file.filename}
+                                className="past-question-image"
+                              />
+                            );
+                          })}
                         </div>
                       )}
                     </div>
