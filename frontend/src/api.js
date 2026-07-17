@@ -1,4 +1,4 @@
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://gpaget-front.onrender.com";
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://gpaget.onrender.com";
 
 function authHeaders() {
   const token = localStorage.getItem("jwt_token");
