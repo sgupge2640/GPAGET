@@ -65,7 +65,7 @@ Render では、以下の環境変数を設定してください。
 SECRET_KEY=your-secret-key
 JWT_SECRET_KEY=your-jwt-secret-key
 DATABASE_URL=sqlite:///app.db
-ALLOWED_ORIGINS=https://gpaget.onrender.com
+ALLOWED_ORIGINS=https://gpaget-front.onrender.com
 ```
 
 ## 補足
