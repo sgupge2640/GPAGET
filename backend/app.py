@@ -5,6 +5,7 @@ from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from sqlalchemy import func
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import jwt
@@ -17,7 +18,17 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 app = Flask(__name__)
 allowed_origins = [origin.strip() for origin in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if origin.strip()]
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}")
+
+def get_database_uri():
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        if database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql://", 1)
+        return database_url
+    return f"sqlite:///{os.path.join(BASE_DIR, 'app.db')}"
+
+
+app.config["SQLALCHEMY_DATABASE_URI"] = get_database_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "replace-with-a-secure-secret")
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "replace-with-another-secret")
@@ -33,7 +44,7 @@ class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    email = db.Column(db.String(180), unique=True, nullable=False)
+    email = db.Column(db.String(180), nullable=False)
     password = db.Column(db.String(200), nullable=False)
     classes = db.relationship("Class", backref="user", cascade="all, delete-orphan")
     tasks = db.relationship("Task", backref="user", cascade="all, delete-orphan")
@@ -118,6 +129,13 @@ def normalize_email(email):
     return email.strip().lower() if isinstance(email, str) else email
 
 
+def get_user_by_email(email):
+    normalized_email = normalize_email(email)
+    return db.session.execute(
+        db.select(User).where(func.lower(User.email) == normalized_email)
+    ).scalar_one_or_none()
+
+
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -177,7 +195,7 @@ def register():
     if not name or not email or not password:
         return jsonify({"message": "name, email, password are required"}), 400
 
-    if User.query.filter_by(email=email).first():
+    if get_user_by_email(email):
         return jsonify({"message": "Email is already registered"}), 400
 
     hashed_password = generate_password_hash(password)
@@ -198,7 +216,7 @@ def login():
     if not email or not password:
         return jsonify({"message": "email and password are required"}), 400
 
-    user = User.query.filter_by(email=email).first()
+    user = get_user_by_email(email)
     if user is None or not check_password_hash(user.password, password):
         return jsonify({"message": "Invalid credentials"}), 401
 
